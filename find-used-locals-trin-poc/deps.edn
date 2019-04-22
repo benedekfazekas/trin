@@ -1,0 +1,5 @@
+{:paths ["resources" "src"]
+ :deps {org.clojure/clojure {:mvn/version "RELEASE"}
+        thomasa/trin        {:local/root  "../trin/"}}
+ :aliases
+ {:test {:extra-deps {lambdaisland/kaocha {:mvn/version "0.0-418"}}}}}
