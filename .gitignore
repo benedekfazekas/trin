@@ -12,5 +12,6 @@ pom.xml.asc
 .hgignore
 .hg/
 *~
-.lsp/
 .cpcache
+target/
+sqlite.1.db

@@ -1,0 +1,1 @@
+{"dependency-scheme" "jar"}
