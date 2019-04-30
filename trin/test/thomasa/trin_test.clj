@@ -87,5 +87,8 @@
                                  :ast-info)]
         (t/is (= '(inc c) (:init let-in-let-c-ast))
               "Reference to c local is not shadowed in let in let")
-        (t/is (= '{a 1 b a c (inc c)} (:locals (:env let-in-let-c-ast)))
+        (t/is (= '{a {:op :local, :local :let, :init 1,       :init-resolved nil},
+                   b {:op :local, :local :let, :init a,       :init-resolved 1},
+                   c {:op :local, :local :let, :init (inc c), :init-resolved nil}}
+                 (:locals (:env let-in-let-c-ast)))
               "Failed to shadow locals")))))

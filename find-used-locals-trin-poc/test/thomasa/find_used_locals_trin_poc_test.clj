@@ -22,4 +22,4 @@
   (t/is (= '() (sut/find-used-locals no-args-defn-with-let 3 12))
         "Used locals not empty in bindings form of let")
   (t/is (= '(prefix) (sut/find-used-locals no-args-defn-with-let 5 21))
-        "Used local should be symbol prefix and only prefix"))
+        "Used local should be symbol 'prefix and only 'prefix"))
