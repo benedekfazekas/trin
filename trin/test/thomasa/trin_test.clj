@@ -49,9 +49,9 @@
       [b c]))
   (println \"baz\"))")
 
-(t/deftest parse-let-loc-test
+(t/deftest analyze-let-loc-test
   (t/testing "test let embedded into a do"
-      (let [embedded-let-with-locals (trin/parse-loc {} (zip/of-string embedded-let))
+      (let [embedded-let-with-locals (trin/analyze-loc {} (zip/of-string embedded-let))
             embedded-let-locs        (trin/all-zlocs embedded-let-with-locals)]
         (t/is (= '#{a b c} (-> embedded-let-with-locals
                                zip/down
@@ -72,7 +72,7 @@
 
   (t/testing "test let in let, effectively shadowing"
     (let [let-in-let-locs (->> (zip/of-string let-in-let)
-                               (trin/parse-loc {})
+                               (trin/analyze-loc {})
                                trin/all-zlocs)
           op-local-locs   (filter (comp #{:local} :op :ast-info first) let-in-let-locs)]
       (t/is (= 5 (count op-local-locs))

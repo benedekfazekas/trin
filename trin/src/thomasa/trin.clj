@@ -46,13 +46,13 @@
     (or (resolve-init locs init-v)
         init-v)))
 
-(declare parse-loc)
+(declare analyze-loc)
 
-(defn- parse-bindings*
+(defn- analyze-bindings*
   [locals env node]
   (let [binding    node
         init       (->> (merge env {:locals @locals})
-                        (partial parse-loc)
+                        (partial analyze-loc)
                         (zsub/subedit-node (zip/right binding)))
         init-sexpr (zip/sexpr init)
         local-info {:op            :local
@@ -61,43 +61,43 @@
                     :init-resolved (resolve-init @locals init-sexpr)}]
     (add-to-locals binding local-info locals)
     (if-let [next-binding (zip/right init)]
-      (parse-bindings* locals env next-binding)
+      (analyze-bindings* locals env next-binding)
       init)))
 
-(defn- parse-bindings
-  "Parses a binding form eg. `[a (some sexpr) b (some other sexpr)]`.
+(defn- analyze-bindings
+  "Analyzes a binding form eg. `[a (some sexpr) b (some other sexpr)]`.
   Calls `add-to-locals` to modify value of `locals` atom to record locals
-  defined in binding. Init sexps are parsed by calling `parse-loc`."
+  defined in binding. Init sexps are analyzed by calling `analyze-loc`."
   [locals env node]
   (if-let [first-binding (zip/down node)]
-    (zip/up (parse-bindings* locals env first-binding))
+    (zip/up (analyze-bindings* locals env first-binding))
     node))
 
-(defn- parse-sexprs-in-do*
+(defn- analyze-sexprs-in-do*
   [env node]
-  (let [node (zsub/subedit-node node (partial parse-loc env))]
+  (let [node (zsub/subedit-node node (partial analyze-loc env))]
     (if-let [next-body-loc (zip/right node)]
-      (parse-sexprs-in-do* env next-body-loc)
+      (analyze-sexprs-in-do* env next-body-loc)
       node)))
 
-(defn- parse-sexprs-in-do
-  "Parses an (implicit) do body by calling `parse-loc` on every sexpr in the body
+(defn- analyze-sexprs-in-do
+  "Analyzes an (implicit) do body by calling `analyze-loc` on every sexpr in the body
   sequentially.
   Expect node to point to the sexpr to the left of the do. That would be the binding
   vector for a `let`"
   [locals env node]
   (if-let [first-body-loc (zip/right node)]
-    (parse-sexprs-in-do* (merge env {:locals @locals}) first-body-loc)
+    (analyze-sexprs-in-do* (merge env {:locals @locals}) first-body-loc)
     node))
 
-(defn parse-let-loc
-  "Parses a let expression."
+(defn analyze-let-loc
+  "Analyzes a let expression."
   [env loc-let]
   (let [locals (atom (:locals env))]
     (-> (zip/down loc-let)
         zip/right
-        (zsub/subedit-node (partial parse-bindings locals env))
-        ((partial parse-sexprs-in-do locals env))
+        (zsub/subedit-node (partial analyze-bindings locals env))
+        ((partial analyze-sexprs-in-do locals env))
         zip/up)))
 
 (defn- skip-to-bottom
@@ -109,7 +109,7 @@
               skip-to-bottom)
       (zip/rightmost loc)))
 
-(defn- parse-args* [locals env arg arg-index]
+(defn- analyze-args* [locals env arg arg-index]
   (add-to-locals
    arg
    {:op     :local
@@ -117,22 +117,22 @@
     :arg-id arg-index}
    locals)
   (if-let [next-arg (zip/right arg)]
-    (parse-args* locals env next-arg (inc arg-index))
+    (analyze-args* locals env next-arg (inc arg-index))
     arg))
 
-(defn- parse-args
+(defn- analyze-args
   [locals env args-loc]
   (if-let [first-arg (zip/down args-loc)]
-    (zip/up (parse-args* locals env first-arg 0))
+    (zip/up (analyze-args* locals env first-arg 0))
     args-loc))
 
-(defn- parse-fn-loc
+(defn- analyze-fn-loc
   [env loc-fn]
   (let [locals (atom (:locals env))]
     (-> (zip/down loc-fn)
         (zip/find (fn [node] (= :vector (zip/tag node))))
-        (zsub/subedit-node (partial parse-args locals env))
-        ((partial parse-sexprs-in-do locals env))
+        (zsub/subedit-node (partial analyze-args locals env))
+        ((partial analyze-sexprs-in-do locals env))
         zip/up)))
 
 (defn- decorate-local-node [node locs]
@@ -142,8 +142,8 @@
    node
    (locs (zip/sexpr node))))
 
-(defn parse-node
-  "Parses a node with `env`."
+(defn analyze-node
+  "Analyzes a node with `env`."
   [env node]
   (let [locs (:locals env)]
     (cond-> node
@@ -155,18 +155,18 @@
       (attach-ast-info :env (fn [env] (assoc env :locals locs))) ;; or update with merge?!
 
       (defn-loc? node)
-      (-> (zsub/subedit-node (partial parse-fn-loc env))
+      (-> (zsub/subedit-node (partial analyze-fn-loc env))
           skip-to-bottom)
 
       (let-loc? node)
-      (-> (zsub/subedit-node (partial parse-let-loc env))
+      (-> (zsub/subedit-node (partial analyze-let-loc env))
           skip-to-bottom))))
 
-(defn parse-loc
-  "Parses loc by walking it and calling `parse-node` on every node."
+(defn analyze-loc
+  "Analyzes loc by walking it and calling `analyze-node` on every node."
   [env loc]
   (zip/prewalk
    loc
-   (partial parse-node env)))
+   (partial analyze-node env)))
 
 ;; -- empty things: empty let bindings, empty let body

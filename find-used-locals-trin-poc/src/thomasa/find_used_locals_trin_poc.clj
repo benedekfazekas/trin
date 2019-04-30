@@ -7,7 +7,7 @@
   "I don't do a whole lot."
   [x]
   (println x "Hello, World!")
-  (trin/parse-loc {} (zip/of-string "[1 2 3]"))
+  (trin/analyze-loc {} (zip/of-string "[1 2 3]"))
   :foo)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -74,8 +74,8 @@
 (defn find-used-locals
   "Adapted version of refactor-nrepl's `refactor-nrepl.find.find-locals/find-used-locals`."
   [source ^long line ^long column]
-  (let [parsed-source    (trin/parse-loc {} (zip/of-string source))
-        selected-sexp    (get-enclosing-sexp parsed-source line column)
+  (let [analyzed-source  (trin/analyze-loc {} (zip/of-string source))
+        selected-sexp    (get-enclosing-sexp analyzed-source line column)
         locals-in-use    (->> (all-zlocs selected-sexp)
                               (filter #(= :local (get-in % [0 :ast-info :op])))
                               (map zip/sexpr)
