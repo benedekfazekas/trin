@@ -3,6 +3,31 @@
             [rewrite-clj.zip :as zip]
             [thomasa.trin :as trin]))
 
+(def embedded-let
+  "(do
+  (println \"foobar\" )
+  (let [a 1
+        b a
+        c 3]
+    (println a)
+    [b c])
+  (println \"baz\"))")
+
+(def let-in-let
+  "(do
+  (println \"foobar\" )
+  (let [a 1
+        b a
+        c 3]
+    (println a)
+    (let [c (inc c)]
+      [b c]))
+  (println \"baz\"))")
+
+(def defn-with-arg
+  "(defn not-much-on-kw [kw]
+        (println \"kw:\" (name kw)))")
+
 (t/deftest a-test
   (t/testing "FIXME, I don't test much"
     (t/is (= 1 1))))
@@ -25,29 +50,6 @@
                          (nth 2)
                          ((juxt zip/sexpr (comp :foo :ast-info first)))))
         "Failed to make attached data persistent across zipper movements"))
-
-
-
-(def embedded-let
-  "(do
-  (println \"foobar\" )
-  (let [a 1
-        b a
-        c 3]
-    (println a)
-    [b c])
-  (println \"baz\"))")
-
-(def let-in-let
-  "(do
-  (println \"foobar\" )
-  (let [a 1
-        b a
-        c 3]
-    (println a)
-    (let [c (inc c)]
-      [b c]))
-  (println \"baz\"))")
 
 (t/deftest analyze-let-loc-test
   (t/testing "test let embedded into a do"
@@ -92,3 +94,20 @@
                    c {:op :local, :local :let, :init (inc c), :init-resolved nil}}
                  (:locals (:env let-in-let-c-ast)))
               "Failed to shadow locals")))))
+
+(t/deftest analyze-defn-with-arg
+  (t/testing "test simple defn with an arg"
+    (let [defn-with-arg-locs (->> (zip/of-string defn-with-arg)
+                                  (trin/analyze-loc {})
+                                  trin/all-zlocs)
+          arg-local-in-env   (some (comp :locals :env :ast-info first) defn-with-arg-locs)
+          arg-local-node     (first (filter (comp #{:local} :op :ast-info first) defn-with-arg-locs))]
+      (t/is (= {'kw {:op :local, :arg-id 0, :local :arg}} arg-local-in-env)
+            "Failed to attach locals based on defn arg.")
+      (t/is (= {:op :local
+                :arg-id 0
+                :local :arg}
+               (-> (first arg-local-node)
+                   :ast-info
+                   (dissoc :env)))
+            "Failed to mark reference to arg in defn body."))))

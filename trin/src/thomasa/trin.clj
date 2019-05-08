@@ -15,7 +15,8 @@
   (and (zip/seq? node)
        (= 'let (zip/sexpr (zip/down node)))))
 
-(defn- defn-loc?
+(defn- fn-loc?
+  "Is `node` an fn sexpr?"
   [node]
   (and (zip/seq? node)
        (#{'defn 'defn- 'fn 'fn*} (zip/sexpr (zip/down node)))))
@@ -84,7 +85,7 @@
   "Analyzes an (implicit) do body by calling `analyze-loc` on every sexpr in the body
   sequentially.
   Expect node to point to the sexpr to the left of the do. That would be the binding
-  vector for a `let`"
+  vector for a `let`."
   [locals env node]
   (if-let [first-body-loc (zip/right node)]
     (analyze-sexprs-in-do* (merge env {:locals @locals}) first-body-loc)
@@ -121,12 +122,14 @@
     arg))
 
 (defn- analyze-args
+  "Analyzes arguments vector of an fn form."
   [locals env args-loc]
   (if-let [first-arg (zip/down args-loc)]
     (zip/up (analyze-args* locals env first-arg 0))
     args-loc))
 
 (defn- analyze-fn-loc
+  "Analyzes an fn loc."
   [env loc-fn]
   (let [locals (atom (:locals env))]
     (-> (zip/down loc-fn)
@@ -154,7 +157,7 @@
       :always
       (attach-ast-info :env (fn [env] (assoc env :locals locs))) ;; or update with merge?!
 
-      (defn-loc? node)
+      (fn-loc? node)
       (-> (zsub/subedit-node (partial analyze-fn-loc env))
           skip-to-bottom)
 
