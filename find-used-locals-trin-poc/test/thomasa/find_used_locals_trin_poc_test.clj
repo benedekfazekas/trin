@@ -87,27 +87,30 @@
         "Used local should be symbol 'prefix and only 'prefix"))
 
 (t/deftest test-find-used-locals
-  (t/is (= '#{s}
-           (sut/find-used-locals example-five 11 6)))
-  (t/is (= '#{sep s}
-           (sut/find-used-locals example-five 12 13)))
-  (t/is (= '#{p}
-           (sut/find-used-locals example-five 19 16)))
-  (t/is (= '#{sep strings}
-           (sut/find-used-locals example-five 26 8)))
-  (t/is (= '#{name}
-           (sut/find-used-locals example-five 33 8)))
-  (t/is (= '#{n}
-           (sut/find-used-locals example-five 36 5)))
-  (t/is (= '#{x y z a b c}
-           (sut/find-used-locals example-five 40 4))))
+  (t/testing "testing find used locals in simple args and let cases"
+    (t/is (= '#{s}
+             (sut/find-used-locals example-five 11 6)))
+    (t/is (= '#{sep s}
+             (sut/find-used-locals example-five 12 13)))
+    (t/is (= '#{p}
+             (sut/find-used-locals example-five 19 16)))
+    (t/is (= '#{sep strings}
+             (sut/find-used-locals example-five 26 8)))
+    (t/is (= '#{name}
+             (sut/find-used-locals example-five 33 8)))
+    (t/is (= '#{n}
+             (sut/find-used-locals example-five 36 5)))
+    (t/is (= '#{x y z a b c}
+             (sut/find-used-locals example-five 40 4)))))
 
-(t/deftest test-find-used-locals-with-deconstruction
-  (t/is (= #{}
-           (sut/find-used-locals example-five 44 7)))
-  (t/is (= '#{foo}
-           (sut/find-used-locals example-five 45 7)))
-  (t/is (= #{}
-           (sut/find-used-locals example-five 57 7)))
-  (t/is (= '#{foo}
-           (sut/find-used-locals example-five 58 7))))
+(t/deftest test-find-used-locals-with-destructuring
+  (t/testing "testing destrucuring in args"
+      (t/is (= #{}
+               (sut/find-used-locals example-five 44 7)))
+    (t/is (= '#{foo}
+             (sut/find-used-locals example-five 45 7))))
+  (t/testing "testing desctructuring in let"
+    (t/is (= #{}
+             (sut/find-used-locals example-five 57 7)))
+    (t/is (= '#{foo}
+             (sut/find-used-locals example-five 58 7)))))
