@@ -1,5 +1,6 @@
 (ns thomasa.find-used-locals-trin-poc
   (:require [rewrite-clj.zip :as zip]
+            [rewrite-clj.zip.subedit :as zip-subedit]
             [thomasa.trin :as trin]
             [clojure.set :as set]))
 
@@ -57,14 +58,15 @@
   ([parsed-content ^long line ^long column ^long level]
    (let [zloc (zip-to parsed-content line column)
          zloc (nth (iterate zip/up zloc) (dec level))]
-     (cond
-       (and zloc (string? (zip/sexpr zloc))) (zip/up zloc)
-       (and zloc (seq? (zip/sexpr zloc))) zloc
-       zloc (zip/up zloc)
-       :else (throw (ex-info "Can't find sexp boundary"
-                             {:file-content (zip/sexpr parsed-content)
-                              :line line
-                              :column column}))))))
+     (zip-subedit/subzip
+      (cond
+        (and zloc (string? (zip/sexpr zloc))) (zip/up zloc)
+        (and zloc (seq? (zip/sexpr zloc)))    zloc
+        zloc                                  (zip/up zloc)
+        :else                                 (throw (ex-info "Can't find sexp boundary"
+                                                              {:file-content (zip/sexpr parsed-content)
+                                                               :line         line
+                                                               :column       column})))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; borrowed from refactor-nrepl ends
@@ -81,6 +83,9 @@
                               (map zip/sexpr)
                               set)
         available-locals (-> selected-sexp first :ast-info :env :locals keys set)]
-    (println "selected sexp" (zip/sexpr selected-sexp)
+    (println "selected sexp"   (zip/sexpr selected-sexp)
+             " locals in use"  locals-in-use
              " avail locals: " available-locals)
-    (filter  (set/intersection available-locals locals-in-use) available-locals)))
+    (-> (set/intersection available-locals locals-in-use)
+        (filter available-locals)
+        set)))

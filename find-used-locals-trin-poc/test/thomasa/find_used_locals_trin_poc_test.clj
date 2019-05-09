@@ -79,9 +79,35 @@
 ")
 
 (t/deftest test-simple-let
-  (t/is (= '() (sut/find-used-locals no-args-defn-with-let 1 10))
+  (t/is (= #{} (sut/find-used-locals no-args-defn-with-let 1 10))
         "Used locals not empty outside let.")
-  (t/is (= '() (sut/find-used-locals no-args-defn-with-let 3 12))
+  (t/is (= #{} (sut/find-used-locals no-args-defn-with-let 3 12))
         "Used locals not empty in bindings form of let")
-  (t/is (= '(prefix) (sut/find-used-locals no-args-defn-with-let 5 21))
+  (t/is (= '#{prefix} (sut/find-used-locals no-args-defn-with-let 5 21))
         "Used local should be symbol 'prefix and only 'prefix"))
+
+(t/deftest test-find-used-locals
+  (t/is (= '#{s}
+           (sut/find-used-locals example-five 11 6)))
+  (t/is (= '#{sep s}
+           (sut/find-used-locals example-five 12 13)))
+  (t/is (= '#{p}
+           (sut/find-used-locals example-five 19 16)))
+  (t/is (= '#{sep strings}
+           (sut/find-used-locals example-five 26 8)))
+  (t/is (= '#{name}
+           (sut/find-used-locals example-five 33 8)))
+  (t/is (= '#{n}
+           (sut/find-used-locals example-five 36 5)))
+  (t/is (= '#{x y z a b c}
+           (sut/find-used-locals example-five 40 4))))
+
+(t/deftest test-find-used-locals-with-deconstruction
+  (t/is (= #{}
+           (sut/find-used-locals example-five 44 7)))
+  (t/is (= '#{foo}
+           (sut/find-used-locals example-five 45 7)))
+  (t/is (= #{}
+           (sut/find-used-locals example-five 57 7)))
+  (t/is (= '#{foo}
+           (sut/find-used-locals example-five 58 7))))
