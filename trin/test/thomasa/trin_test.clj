@@ -34,7 +34,7 @@
 
 (t/deftest use-rewrite-clj-node-as-AST
   (t/is (= "foo" (-> (zip/of-string "[1 2 3]")
-                     (trin/attach-ast-info :foo (constantly "foo"))
+                     (#'trin/attach-ast-info :foo (constantly "foo"))
                      first
                      :ast-info
                      :foo))
@@ -42,7 +42,7 @@
   (t/is (= [2 "foo"] (-> (zip/of-string "[1 2 3]")
                          zip/down
                          zip/right
-                         (trin/attach-ast-info :foo (constantly "foo"))
+                         (#'trin/attach-ast-info :foo (constantly "foo"))
                          zip/up
                          zip/root
                          zip/edn
