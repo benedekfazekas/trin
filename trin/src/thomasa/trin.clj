@@ -66,7 +66,35 @@
 ;; analyze handlers
 (declare analyze-form)
 (declare analyze-args*)
-(declare analyze-destructuring)
+
+(defn- analyze-map-desctructuring* [locals env k local-info]
+  (let [v (zip/right k)]
+    (if (#{:keys :strs :syms} (zip/sexpr k))
+      (analyze-args* locals env (zip/down v) local-info)
+      (add-to-locals k
+                     (assoc local-info :op :local)
+                     locals))
+    (if-let [next-k (zip/right v)]
+      (analyze-map-desctructuring* locals env next-k local-info)
+      v)))
+
+(defn- analyze-map-desctructuring
+  "Analyzes destructuring of maps."
+  [locals env arg local-info]
+  (if-let [first-key (zip/down arg)]
+    (zip/up (analyze-map-desctructuring* locals env first-key local-info))
+    arg))
+
+(defn- analyze-destructuring
+  "Analyzes destructuring."
+  [locals env arg arg-sexpr local-info]
+  (cond
+    (vector? arg-sexpr)
+    (when-let [first-arg (zip/down arg)]
+      (analyze-args* locals env first-arg arg local-info))
+
+    (map? arg-sexpr)
+    (analyze-map-desctructuring locals env arg local-info)))
 
 (defn- analyze-bindings*
   [locals env node]
@@ -122,35 +150,6 @@
         (zsub/subedit-node (partial analyze-bindings locals env))
         ((partial analyze-sexprs-in-do locals env))
         zip/up)))
-
-(defn- analyze-map-desctructuring* [locals env k local-info]
-  (let [v (zip/right k)]
-    (if (#{:keys :strs :syms} (zip/sexpr k))
-      (analyze-args* locals env (zip/down v) local-info)
-      (add-to-locals k
-                     (assoc local-info :op :local)
-                     locals))
-    (if-let [next-k (zip/right v)]
-      (analyze-map-desctructuring* locals env next-k local-info)
-      v)))
-
-(defn- analyze-map-desctructuring
-  "Analyzes destructuring of maps."
-  [locals env arg local-info]
-  (if-let [first-key (zip/down arg)]
-    (zip/up (analyze-map-desctructuring* locals env first-key local-info))
-    arg))
-
-(defn- analyze-destructuring
-  "Analyzes destructuring."
-  [locals env arg arg-sexpr local-info]
-  (cond
-    (vector? arg-sexpr)
-    (when-let [first-arg (zip/down arg)]
-      (analyze-args* locals env first-arg arg local-info))
-
-    (map? arg-sexpr)
-    (analyze-map-desctructuring locals env arg local-info)))
 
 (defn- analyze-args*
   [locals env arg local-info]
