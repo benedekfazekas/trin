@@ -63,14 +63,21 @@
     (or (resolve-init locs init-v)
         init-v)))
 
+(defn- decorate-local-node [node locs]
+  (reduce
+   (fn [node [loc-k loc-v]]
+     (attach-ast-info node loc-k (constantly loc-v)))
+   node
+   (locs (zip/sexpr node))))
+
 ;; analyze handlers
 (declare analyze-form)
-(declare analyze-args*)
+(declare analyze-vector-of-locals)
 
 (defn- analyze-map-desctructuring* [locals env k local-info]
   (let [v (zip/right k)]
     (if (#{:keys :strs :syms} (zip/sexpr k))
-      (analyze-args* locals env (zip/down v) local-info)
+      (analyze-vector-of-locals locals env (zip/down v) local-info)
       (add-to-locals k
                      (assoc local-info :op :local)
                      locals))
@@ -91,7 +98,7 @@
   (cond
     (vector? arg-sexpr)
     (when-let [first-arg (zip/down arg)]
-      (analyze-args* locals env first-arg arg local-info))
+      (analyze-vector-of-locals locals env first-arg arg local-info))
 
     (map? arg-sexpr)
     (analyze-map-desctructuring locals env arg local-info)))
@@ -151,7 +158,8 @@
         ((partial analyze-sexprs-in-do locals env))
         zip/up)))
 
-(defn- analyze-args*
+(defn- analyze-vector-of-locals
+  "Analyzes a vector of locals either in arguments or in desctructuring."
   [locals env arg local-info]
   (let [arg-sexpr (zip/sexpr arg)]
     (if (symbol? arg-sexpr)
@@ -161,16 +169,20 @@
        locals)
       (analyze-destructuring locals env arg arg-sexpr local-info)))
   (if-let [next-arg (zip/right arg)]
-    (analyze-args* locals env next-arg (if (:arg-index local-info)
-                                         (update local-info :arg-id inc)
-                                         local-info))
+    (analyze-vector-of-locals
+     locals
+     env
+     next-arg
+     (or (and (:arg-index local-info)
+              (update local-info :arg-id inc))
+         local-info))
     arg))
 
 (defn- analyze-args
   "Analyzes arguments vector of an fn form."
   [locals env args-loc]
   (if-let [first-arg (zip/down args-loc)]
-    (zip/up (analyze-args* locals env first-arg {:local  :arg
+    (zip/up (analyze-vector-of-locals locals env first-arg {:local  :arg
                                                  :arg-id 0}))
     args-loc))
 
@@ -183,13 +195,6 @@
         (zsub/subedit-node (partial analyze-args locals env))
         ((partial analyze-sexprs-in-do locals env))
         zip/up)))
-
-(defn- decorate-local-node [node locs]
-  (reduce
-   (fn [node [loc-k loc-v]]
-     (attach-ast-info node loc-k (constantly loc-v)))
-   node
-   (locs (zip/sexpr node))))
 
 (defn- analyze-node
   "Analyzes a node with `env`."
