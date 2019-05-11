@@ -96,6 +96,13 @@
       (#{:or} key-sexpr)
       (analyze-defaults-map locals (zip/down v))
 
+      (#{:as} key-sexpr)
+      (add-to-locals
+       v
+       (-> (assoc local-info :op :local)
+           (assoc :as-symbol true))
+       locals)
+
       :default
       (add-to-locals
        k
