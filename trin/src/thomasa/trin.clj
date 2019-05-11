@@ -74,13 +74,33 @@
 (declare analyze-form)
 (declare analyze-vector-of-locals)
 
+(defn- analyze-defaults-map
+  "Analyzes a defaults map for desctructuring."
+  [locals defaults-key]
+  (let [defaults-value (zip/right defaults-key)]
+    (swap! locals
+           assoc-in
+           [(zip/sexpr defaults-key) :default-value]
+           (zip/sexpr defaults-value))
+    (when-let [next-defaults-key (zip/right defaults-value)]
+      (analyze-defaults-map locals next-defaults-key))))
+
 (defn- analyze-map-desctructuring* [locals env k local-info]
-  (let [v (zip/right k)]
-    (if (#{:keys :strs :syms} (zip/sexpr k))
+  (let [v         (zip/right k)
+        key-sexpr (zip/sexpr k)]
+    (cond
+
+      (#{:keys :strs :syms} key-sexpr)
       (analyze-vector-of-locals locals env (zip/down v) local-info)
-      (add-to-locals k
-                     (assoc local-info :op :local)
-                     locals))
+
+      (#{:or} key-sexpr)
+      (analyze-defaults-map locals (zip/down v))
+
+      :default
+      (add-to-locals
+       k
+       (assoc local-info :op :local)
+       locals))
     (if-let [next-k (zip/right v)]
       (analyze-map-desctructuring* locals env next-k local-info)
       v)))
