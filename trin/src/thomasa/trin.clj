@@ -100,7 +100,7 @@
       (add-to-locals
        v
        (-> (assoc local-info :op :local)
-           (assoc :as-symbol true))
+           (assoc :as? true))
        locals)
 
       :default
@@ -188,22 +188,33 @@
 (defn- analyze-vector-of-locals
   "Analyzes a vector of locals either in arguments or in desctructuring."
   [locals env arg local-info]
-  (let [arg-sexpr (zip/sexpr arg)]
-    (if (symbol? arg-sexpr)
+  (let [arg-sexpr (zip/sexpr arg)
+        arg       (or (and (= '& arg-sexpr) (zip/right arg)) arg)]
+    (cond
+      (= '& arg-sexpr)
+      (add-to-locals
+       arg
+       (-> (assoc local-info :op :local)
+           (assoc :variadic? true))
+       locals)
+
+      (symbol? arg-sexpr)
       (add-to-locals
        arg
        (assoc local-info :op :local)
        locals)
-      (analyze-destructuring locals env arg arg-sexpr local-info)))
-  (if-let [next-arg (zip/right arg)]
-    (analyze-vector-of-locals
-     locals
-     env
-     next-arg
-     (or (and (:arg-index local-info)
-              (update local-info :arg-id inc))
-         local-info))
-    arg))
+
+      :default
+      (analyze-destructuring locals env arg arg-sexpr local-info))
+    (if-let [next-arg (zip/right arg)]
+      (analyze-vector-of-locals
+       locals
+       env
+       next-arg
+       (or (and (:arg-index local-info)
+                (update local-info :arg-id inc))
+           local-info))
+      arg)))
 
 (defn- analyze-args
   "Analyzes arguments vector of an fn form."
