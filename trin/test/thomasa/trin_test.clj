@@ -28,6 +28,21 @@
   "(defn not-much-on-kw [kw]
         (println \"kw:\" (name kw)))")
 
+(def defn-with-varargs
+  "(defn not-much-on-kws [kw & other-kws]
+        (println \"kw:\" (name kw) \"others: \" (map name other-kws)))")
+
+(def defn-with-map-destruct-as-defaults-varargs
+  "(defn fn-with-default-optmap-linebreak
+  [{:keys [foo
+           bar]
+    :as all-the-things
+    :or {foo
+         \"foo\"}}
+   & rest-args]
+  [:bar :foo]
+  (count foo))")
+
 (t/deftest a-test
   (t/testing "FIXME, I don't test much"
     (t/is (= 1 1))))
@@ -95,19 +110,76 @@
                  (:locals (:env let-in-let-c-ast)))
               "Failed to shadow locals")))))
 
-(t/deftest analyze-defn-with-arg
+(t/deftest analyze-defn-with-arg-test
   (t/testing "test simple defn with an arg"
     (let [defn-with-arg-locs (->> (zip/of-string defn-with-arg)
                                   (trin/analyze-loc {})
                                   trin/all-zlocs)
           arg-local-in-env   (some (comp :locals :env :ast-info first) defn-with-arg-locs)
           arg-local-node     (first (filter (comp #{:local} :op :ast-info first) defn-with-arg-locs))]
-      (t/is (= {'kw {:op :local, :arg-id 0, :local :arg}} arg-local-in-env)
+      (t/is (= {'kw {:op     :local
+                     :arg-id 0
+                     :local  :arg}} arg-local-in-env)
             "Failed to attach locals based on defn arg.")
-      (t/is (= {:op :local
+      (t/is (= {:op     :local
                 :arg-id 0
-                :local :arg}
+                :local  :arg}
                (-> (first arg-local-node)
+                   :ast-info
+                   (dissoc :env)))
+            "Failed to mark reference to arg in defn body."))))
+
+(t/deftest analyze-defn-with-varargs-test
+  (t/testing "test defn with varargs"
+    (let [defn-with-varargs-locs (->> (zip/of-string defn-with-varargs)
+                                      (trin/analyze-loc {})
+                                      (trin/all-zlocs))
+          arg-local-in-env   (some (comp :locals :env :ast-info first) defn-with-varargs-locs)
+          arg-local-node     (filter (comp #{:local} :op :ast-info first) defn-with-varargs-locs)]
+      (t/is (= {'kw        {:op     :local
+                            :arg-id 0
+                            :local  :arg}
+                'other-kws {:op        :local
+                            :arg-id    0
+                            :local     :arg
+                            :variadic? true}} arg-local-in-env)
+            "Failed to attach locals based on defn arg and varargs.")
+      (t/is (= {:op     :local
+                :arg-id 0
+                :local  :arg}
+               (-> (ffirst arg-local-node)
+                   :ast-info
+                   (dissoc :env)))
+            "Failed to mark reference to arg in defn body.")
+      (t/is (= {:op        :local
+                :arg-id    0
+                :variadic? true
+                :local     :arg}
+               (-> (last arg-local-node)
+                   first
+                   :ast-info
+                   (dissoc :env)))
+            "Failed to mark reference to varargs coll in defn body."))))
+
+(t/deftest analyze-defn-with-map-destruct-as-defaults-varargs-test
+  (t/testing "map destructuring, defaults, as, varargs"
+    (let [defn-locs        (->> (zip/of-string defn-with-map-destruct-as-defaults-varargs)
+                                (trin/analyze-loc {})
+                                (trin/all-zlocs))
+          arg-local-in-env (some (comp :locals :env :ast-info first) defn-locs)
+          arg-local-node   (filter (comp #{:local} :op :ast-info first) defn-locs)]
+      (t/is (=
+             {'all-the-things {:arg-id 0, :as? true, :local :arg, :op :local},
+              'bar            {:arg-id 0, :local :arg, :op :local},
+              'foo            {:arg-id 0, :default-value "foo", :local :arg, :op :local},
+              'rest-args      {:arg-id 0, :local :arg, :op :local, :variadic? true}}
+             arg-local-in-env)
+            "Failed to recognise all locals in args.")
+      (t/is (= {:op            :local
+                :arg-id        0
+                :local         :arg
+                :default-value "foo"}
+               (-> (ffirst arg-local-node)
                    :ast-info
                    (dissoc :env)))
             "Failed to mark reference to arg in defn body."))))
