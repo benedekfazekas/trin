@@ -2,4 +2,5 @@
  :deps {org.clojure/clojure {:mvn/version "RELEASE"}
         rewrite-clj {:mvn/version "0.6.1"}}
  :aliases
- {:test {:extra-deps {lambdaisland/kaocha {:mvn/version "0.0-418"}}}}}
+ {:test {:extra-deps {lambdaisland/kaocha {:mvn/version "0.0-418"}
+                      lambdaisland/kaocha-cloverage {:mvn/version "0.0-32"}}}}}
