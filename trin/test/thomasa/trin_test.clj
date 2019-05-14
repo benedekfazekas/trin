@@ -43,6 +43,10 @@
   [:bar :foo]
   (count foo))")
 
+(def defn-nested-and-combined-destructurings
+  "(defn plain-destruct [an-arg {{:keys [bar] :as inner} :foo :as outer} & rest-args]
+  (println \"bar\" bar \"outer\" outer :inner inner))")
+
 (t/deftest a-test
   (t/testing "FIXME, I don't test much"
     (t/is (= 1 1))))
@@ -104,9 +108,9 @@
                                  :ast-info)]
         (t/is (= '(inc c) (:init let-in-let-c-ast))
               "Reference to c local is not shadowed in let in let")
-        (t/is (= '{a {:op :local, :local :let, :init 1,       :init-resolved nil},
-                   b {:op :local, :local :let, :init a,       :init-resolved 1},
-                   c {:op :local, :local :let, :init (inc c), :init-resolved nil}}
+        (t/is (= '{a {:op :local :local :let :init 1       :init-resolved nil}
+                   b {:op :local :local :let :init a       :init-resolved 1}
+                   c {:op :local :local :let :init (inc c) :init-resolved nil}}
                  (:locals (:env let-in-let-c-ast)))
               "Failed to shadow locals")))))
 
@@ -140,7 +144,7 @@
                             :arg-id 0
                             :local  :arg}
                 'other-kws {:op        :local
-                            :arg-id    0
+                            :arg-id    1
                             :local     :arg
                             :variadic? true}} arg-local-in-env)
             "Failed to attach locals based on defn arg and varargs.")
@@ -152,7 +156,7 @@
                    (dissoc :env)))
             "Failed to mark reference to arg in defn body.")
       (t/is (= {:op        :local
-                :arg-id    0
+                :arg-id    1
                 :variadic? true
                 :local     :arg}
                (-> (last arg-local-node)
@@ -169,10 +173,10 @@
           arg-local-in-env (some (comp :locals :env :ast-info first) defn-locs)
           arg-local-node   (filter (comp #{:local} :op :ast-info first) defn-locs)]
       (t/is (=
-             {'all-the-things {:arg-id 0, :as? true, :local :arg, :op :local},
-              'bar            {:arg-id 0, :local :arg, :op :local},
-              'foo            {:arg-id 0, :default-value "foo", :local :arg, :op :local},
-              'rest-args      {:arg-id 0, :local :arg, :op :local, :variadic? true}}
+             {'all-the-things {:arg-id 0 :as? true :local :arg :op :local}
+              'bar            {:arg-id 0 :local :arg :op :local}
+              'foo            {:arg-id 0 :default-value "foo" :local :arg :op :local}
+              'rest-args      {:arg-id 1 :local :arg :op :local :variadic? true}}
              arg-local-in-env)
             "Failed to recognise all locals in args.")
       (t/is (= {:op            :local
@@ -183,3 +187,23 @@
                    :ast-info
                    (dissoc :env)))
             "Failed to mark reference to arg in defn body."))))
+
+(t/deftest analyze-defn-nested-and-combined-destructurings-test
+  (t/testing "nested and combined associative and sequential destructurings"
+    (let [defn-locs (->> (zip/of-string defn-nested-and-combined-destructurings)
+                         (trin/analyze-loc {})
+                         (trin/all-zlocs))
+          arg-local-in-env (some (comp :locals :env :ast-info first) defn-locs)
+          arg-local-nodes   (filter (comp #{:local} :op :ast-info first) defn-locs)]
+      (t/is (= {'an-arg    {:arg-id 0 :local :arg :op :local}
+                'bar       {:arg-id 1 :local :arg :op :local}
+                'inner     {:arg-id 1 :as? true :local :arg :op :local}
+                'outer     {:arg-id 1 :as? true :local :arg :op :local}
+                'rest-args {:arg-id 2 :local :arg :op :local :variadic? true}}
+               arg-local-in-env)
+            "Failed to recognise all locals in args")
+      (t/is (->> (map first arg-local-nodes)
+                 (map :ast-info)
+                 (map :arg-id)
+                 (every? (partial = 1)))
+            "Not all used locals are from the second arg."))))
