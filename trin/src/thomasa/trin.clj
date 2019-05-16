@@ -104,7 +104,7 @@
       (analyze-map-desctructuring* locals env (zip/down k) local-info)
 
       (#{:keys :strs :syms} key-sexpr)
-      (analyze-vector-of-locals locals env (zip/down v) local-info nil)
+      (analyze-vector-of-locals locals (dissoc env :analyzing) (zip/down v) local-info)
 
       (#{:or} key-sexpr)
       (analyze-defaults-map locals (zip/down v))
@@ -138,7 +138,7 @@
   (cond
     (vector? arg-sexpr)
     (when-let [first-arg (zip/down arg)]
-      (analyze-vector-of-locals locals env first-arg local-info nil))
+      (analyze-vector-of-locals locals env first-arg local-info))
 
     (map? arg-sexpr)
     (analyze-map-desctructuring locals env arg local-info)))
@@ -206,7 +206,7 @@
 
 (defn- analyze-vector-of-locals
   "Analyzes a vector of locals either in arguments or in desctructuring."
-  [locals env arg local-info arg-id-fn]
+  [locals env arg local-info]
   (let [arg-sexpr (zip/sexpr arg)
         arg       (or (and (= '& arg-sexpr) (zip/right arg)) arg)]
     (cond
@@ -231,10 +231,9 @@
        env
        next-arg
        (or (and (:arg-id local-info)
-                arg-id-fn
-                (update local-info :arg-id arg-id-fn))
-           local-info)
-       arg-id-fn)
+                (= :arg (analyzed->local (:analyzing env) :undefined))
+                (update local-info :arg-id inc))
+           local-info))
       arg)))
 
 (defn- analyze-args
@@ -247,8 +246,7 @@
       env
       first-arg
       {:local  (analyzed->local (:analyzing env) :undefined)
-       :arg-id 0}
-      inc))
+       :arg-id 0}))
     args-loc))
 
 (defn- analyze-fn-loc
