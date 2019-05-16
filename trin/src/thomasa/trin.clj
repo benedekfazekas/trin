@@ -28,7 +28,7 @@
   "Is `node` a let sexpr?"
   [node]
   (and (zip/seq? node)
-       (#{'let 'loop 'loop*} (zip/sexpr (zip/down node)))))
+       (#{'let 'loop 'loop* 'if-let 'when-let 'letfn 'for :let} (zip/sexpr (zip/down node)))))
 
 (defn- fn-loc?
   "Is `node` an fn sexpr?"
@@ -43,14 +43,19 @@
 
 ;; ast info manipulation
 (def analyzed->local
-  {'let   :let
-   'let*  :let
-   'loop  :loop
-   'loop* :loop
-   'defn  :arg
-   'defn- :arg
-   'fn    :arg
-   'fn*   :arg})
+  {'let      :let
+   :let      :let
+   'let*     :let
+   'when-let :let
+   'if-let   :let
+   'letfn    :let
+   'for      :for
+   'loop     :loop
+   'loop*    :loop
+   'defn     :arg
+   'defn-    :arg
+   'fn       :arg
+   'fn*      :arg})
 
 (defn- attach-ast-info
   "Attach info to the node under the key `:ast-info` and the suppliend `ast-key`.
@@ -155,8 +160,14 @@
                        :local         (analyzed->local (:analyzing env) :undefined)
                        :init          init-sexpr
                        :init-resolved (resolve-init @locals init-sexpr)}]
-    (if (symbol? binding-sexpr)
+    (cond
+      (= :let binding-sexpr)
+      (analyze-bindings* locals env (zip/down (zip/right node)))
+
+      (symbol? binding-sexpr)
       (add-to-locals binding local-info locals)
+
+      :default
       (analyze-destructuring locals env binding binding-sexpr local-info))
     (if-let [next-binding (zip/right init)]
       (analyze-bindings* locals env next-binding)

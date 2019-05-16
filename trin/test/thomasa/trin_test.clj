@@ -47,11 +47,18 @@
   "(defn plain-destruct [an-arg {{:keys [bar] :as inner} :foo :as outer} & rest-args]
   (println \"bar\" bar \"outer\" outer :inner inner))")
 
-(def defn-using-loop "(defn fn-using-loop []
+(def defn-using-loop
+  "(defn fn-using-loop []
   (loop [[kw & rest-kws] [:a :b :c :d]]
     (when kw
       (println kw)
       (recur rest-kws))))")
+
+(def defn-with-for
+  "(defn simple-for-fn []
+  (for [kw [:a :b :c :d]
+        :let [kwstr (name kw)]]
+    [kw kwstr]))")
 
 (t/deftest use-rewrite-clj-node-as-AST
   (t/is (= "foo" (-> (zip/of-string "[1 2 3]")
@@ -239,3 +246,33 @@
                    :ast-info
                    (dissoc :env)))
             "Failed to mark reference to rest local."))))
+
+(t/deftest analyze-for-with-let-keyword
+  (t/testing "analyze for with let keyword"
+    (let [defn-locs        (->> (zip/of-string defn-with-for)
+                                (trin/analyze-loc {})
+                                (trin/all-zlocs))
+          ->ast-info       (comp :locals :env :ast-info first)
+          arg-local-in-env (->ast-info (last (filter ->ast-info defn-locs)))
+          arg-local-nodes  (filter (comp #{:local} :op :ast-info first) defn-locs)]
+      (t/is (= {'kw    {:init [:a :b :c :d] :init-resolved nil :local :for :op :local}
+                'kwstr {:init '(name kw) :init-resolved nil :local :for :op :local}}
+               arg-local-in-env)
+            "Failed to recognise all locals in for")
+      (t/is (= {:op            :local
+                :local         :for
+                :init          [:a :b :c :d]
+                :init-resolved nil}
+               (-> (ffirst arg-local-nodes)
+                   :ast-info
+                   (dissoc :env)))
+            "Failed to mark reference to local bound to element of seq being iterated")
+      (t/is (= {:op            :local
+                :local         :for
+                :init          '(name kw)
+                :init-resolved nil}
+               (-> (last arg-local-nodes)
+                   first
+                   :ast-info
+                   (dissoc :env)))
+            "Failed to mark reference to :let binding in for"))))
