@@ -1,0 +1,36 @@
+version: 2.1
+orbs:
+  codecov: codecov/codecov@1.0.4
+jobs:
+  build:
+    docker:
+      - image: circleci/clojure:tools-deps
+
+    working_directory: ~/trin-mono/trin
+
+    environment:
+      CODECOV_TOKEN: "5a28bd3c-5e48-4855-b746-7ebc7caf78b6"
+
+    steps:
+      - checkout:
+          path: ~/trin-mono
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ checksum "deps.edn" }}
+          # fallback to using the latest cache if no exact match is found
+          - v1-dependencies-
+      - run: pwd
+      - run: ls -la
+      - run: clojure -A:test -Spath
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: v1-dependencies-{{ checksum "deps.edn" }}
+      - run: clojure -A:test -m kaocha.runner
+      - run: clojure -A:test -m kaocha.runner --plugin cloverage --codecov
+      - codecov/upload:
+          file: target/coverage/codecov.json
+      - run:
+          command: |
+            cd ../find-used-locals-trin-poc/
+            clojure -A:test -m kaocha.runner
