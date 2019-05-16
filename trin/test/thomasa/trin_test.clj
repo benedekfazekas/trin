@@ -47,9 +47,11 @@
   "(defn plain-destruct [an-arg {{:keys [bar] :as inner} :foo :as outer} & rest-args]
   (println \"bar\" bar \"outer\" outer :inner inner))")
 
-(t/deftest a-test
-  (t/testing "FIXME, I don't test much"
-    (t/is (= 1 1))))
+(def defn-using-loop "(defn fn-using-loop []
+  (loop [[kw & rest-kws] [:a :b :c :d]]
+    (when kw
+      (println kw)
+      (recur rest-kws))))")
 
 (t/deftest use-rewrite-clj-node-as-AST
   (t/is (= "foo" (-> (zip/of-string "[1 2 3]")
@@ -207,3 +209,33 @@
                  (map :arg-id)
                  (every? (partial = 1)))
             "Not all used locals are from the second arg."))))
+
+(t/deftest analyze-loop-test
+  (t/testing "analyze loop in terms of locals"
+    (let [defn-locs (->> (zip/of-string defn-using-loop)
+                         (trin/analyze-loc {})
+                         (trin/all-zlocs))
+          arg-local-in-env (some (comp :locals :env :ast-info first) defn-locs)
+          arg-local-nodes   (filter (comp #{:local} :op :ast-info first) defn-locs)]
+      (t/is (= {'kw {:init [:a :b :c :d] :init-resolved nil :local :loop :op :local}
+                'rest-kws {:init [:a :b :c :d] :init-resolved nil :local :loop :op :local :rest-seq? true}}
+               arg-local-in-env)
+            "Failed to recognise all locals in loop.")
+      (t/is (= {:op            :local
+                :local         :loop
+                :init          [:a :b :c :d]
+                :init-resolved nil}
+               (-> (ffirst arg-local-nodes)
+                   :ast-info
+                   (dissoc :env)))
+            "Failed to mark reference to first local.")
+      (t/is (= {:op            :local
+                :local         :loop
+                :rest-seq?     true
+                :init          [:a :b :c :d]
+                :init-resolved nil}
+               (-> (last arg-local-nodes)
+                   first
+                   :ast-info
+                   (dissoc :env)))
+            "Failed to mark reference to rest local."))))

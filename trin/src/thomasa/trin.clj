@@ -24,11 +24,11 @@
   (zip/next (skip-to-bottom loc)))
 
 ;; predicates
-(defn- let-loc?
+(defn- let-like-loc?
   "Is `node` a let sexpr?"
   [node]
   (and (zip/seq? node)
-       (= 'let (zip/sexpr (zip/down node)))))
+       (#{'let 'loop 'loop*} (zip/sexpr (zip/down node)))))
 
 (defn- fn-loc?
   "Is `node` an fn sexpr?"
@@ -42,6 +42,16 @@
   ((set (keys locs)) (zip/sexpr node)))
 
 ;; ast info manipulation
+(def analyzed->local
+  {'let   :let
+   'let*  :let
+   'loop  :loop
+   'loop* :loop
+   'defn  :arg
+   'defn- :arg
+   'fn    :arg
+   'fn*   :arg})
+
 (defn- attach-ast-info
   "Attach info to the node under the key `:ast-info` and the suppliend `ast-key`.
   `ast-fn-value` should accept the original value under `[:ast-info ast-key]`."
@@ -142,7 +152,7 @@
                            (zsub/subedit-node (zip/right binding)))
         init-sexpr    (zip/sexpr init)
         local-info    {:op            :local
-                       :local         :let
+                       :local         (analyzed->local (:analyzing env) :undefined)
                        :init          init-sexpr
                        :init-resolved (resolve-init @locals init-sexpr)}]
     (if (symbol? binding-sexpr)
@@ -171,6 +181,7 @@
 (defn- analyze-sexprs-in-do
   "Analyzes an (implicit) do body by calling `analyze-form` on every sexpr in the body
   sequentially.
+
   Expect node to point to the sexpr to the left of the do. That would be the binding
   vector for a `let`."
   [locals env node]
@@ -188,6 +199,11 @@
         ((partial analyze-sexprs-in-do locals env))
         zip/up)))
 
+(defn- ->rest-seq-key [env]
+  (or (and (= :arg (analyzed->local (:analyzing env) :undefined))
+           :variadic?)
+      :rest-seq?))
+
 (defn- analyze-vector-of-locals
   "Analyzes a vector of locals either in arguments or in desctructuring."
   [locals env arg local-info arg-id-fn]
@@ -198,7 +214,7 @@
       (add-to-locals
        arg
        (-> (assoc local-info :op :local)
-           (assoc :variadic? true))
+           (assoc (->rest-seq-key env) true))
        locals)
 
       (symbol? arg-sexpr)
@@ -225,13 +241,14 @@
   "Analyzes arguments vector of an fn form."
   [locals env args-loc]
   (if-let [first-arg (zip/down args-loc)]
-    (zip/up (analyze-vector-of-locals
-             locals
-             env
-             first-arg
-             {:local  :arg
-              :arg-id 0}
-             inc))
+    (zip/up
+     (analyze-vector-of-locals
+      locals
+      env
+      first-arg
+      {:local  (analyzed->local (:analyzing env) :undefined)
+       :arg-id 0}
+      inc))
     args-loc))
 
 (defn- analyze-fn-loc
@@ -244,10 +261,14 @@
         ((partial analyze-sexprs-in-do locals env))
         zip/up)))
 
+(defn- prepare-env [node env]
+  (assoc env :analyzing (or (fn-loc? node) (let-like-loc? node))))
+
 (defn- analyze-node
   "Analyzes a node with `env`."
   [env node]
-  (let [locs (:locals env)]
+  (let [locs (:locals env)
+        env  (prepare-env node env)]
     (cond-> node
 
       (locals-contains? locs node)
@@ -260,19 +281,19 @@
       (-> (zsub/subedit-node (partial analyze-fn-loc env))
           skip-to-bottom)
 
-      (let-loc? node)
+      (let-like-loc? node)
       (-> (zsub/subedit-node (partial analyze-let-loc env))
           skip-to-bottom))))
 
 (defn analyze-form
-  "Analyzes loc representing a first level form by walking it and calling `analyze-node` on every node."
+  "Analyzes `loc` representing a first level form by walking it and calling `analyze-node` on every node."
   [env loc]
   (zip/prewalk
    loc
    (partial analyze-node env)))
 
 (defn analyze-loc
-  "Analyzes all first level forms in loc.
+  "Analyzes all first level forms in `loc`.
 
   Loc typically represents a namespace."
   [env loc]
