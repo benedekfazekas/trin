@@ -2,7 +2,7 @@
 
 # trin
 
-- [`trin`](trin/) a static analyzer for Clojure(Script)
+- [`trin`](trin/) a static analyzer for Clojure, ClojureScript (and eventually ClojureC)
 - [PoC](find-used-locals-trin-poc/) to explore reimplementing `refactor-nrepl.find.find-locals` using `trin`
 
 ## Status

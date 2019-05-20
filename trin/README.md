@@ -10,6 +10,8 @@ Macros are not expanded as of now. `trin` very likely will focus on analysing th
 
 Compared to other [rewrite-clj](https://github.com/xsc/rewrite-clj) based analysis tools like [clj-kondo](https://github.com/borkdude/clj-kondo) and [clojure-lsp](https://github.com/snoe/clojure-lsp) `trin` aims to create a generic AST for other tools to work with.
 
+As [rewrite-clj](https://github.com/xsc/rewrite-clj) handles both Clojure and ClojureScript well `trin` supports both. There is a bit more machinery needed to support cljc files, this will be added eventually too.
+
 ## Usage
 
 ```clojure
