@@ -304,7 +304,7 @@
 (defn analyze-loc
   "Analyzes all first level forms in `loc`.
 
-  Loc typically represents a namespace."
+  `loc` typically represents a namespace."
   [env loc]
   (loop [loc loc]
     (let [loc       (analyze-form env loc)
@@ -312,5 +312,12 @@
       (if-not (zip/end? next-loc)
         (recur next-loc)
         (zip/leftmost loc)))))
+
+(defn analyze-loc-string
+  "Analyzes all first level forms in `loc-str`
+
+  `loc-str` typically represents a namespaces and of type string."
+  [env loc-str]
+  (analyze-loc env (zip/of-string loc-str)))
 
 ;; -- empty things: empty let bindings, empty let body
