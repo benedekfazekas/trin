@@ -66,7 +66,7 @@
                      first
                      :ast-info
                      :foo))
-        "Failed to attach data to rewrite-clj node")
+        "Attach data to rewrite-clj node")
   (t/is (= [2 "foo"] (-> (zip/of-string "[1 2 3]")
                          zip/down
                          zip/right
@@ -77,7 +77,7 @@
                          trin/all-zlocs
                          (nth 2)
                          ((juxt zip/sexpr (comp :foo :ast-info first)))))
-        "Failed to make attached data persistent across zipper movements"))
+        "Make attached data persistent across zipper movements"))
 
 (t/deftest analyze-let-loc-test
   (t/testing "test let embedded into a do"
@@ -96,9 +96,9 @@
                                :locals
                                keys
                                set))
-              "Failed to add locals to env.")
+              "Add locals to env.")
         (t/is (= 4 (count (filter (comp #{:local} :op :ast-info first) embedded-let-locs)))
-              "Failed to identify all op-locals")))
+              "Identify all op-locals")))
 
   (t/testing "test let in let, effectively shadowing"
     (let [let-in-let-locs (->> (zip/of-string let-in-let)
@@ -106,22 +106,22 @@
                                trin/all-zlocs)
           op-local-locs   (filter (comp #{:local} :op :ast-info first) let-in-let-locs)]
       (t/is (= 5 (count op-local-locs))
-            "Failed to identify all op-locals")
+            "Identify all op-locals")
       (t/is (= 3 (-> (drop 2 op-local-locs)
                      ffirst
                      :ast-info
                      :init))
-            "Init in outside let for local is incorrect")
+            "Init in outside let for local is correct")
       (let [let-in-let-c-ast (-> (last op-local-locs)
                                  first
                                  :ast-info)]
         (t/is (= '(inc c) (:init let-in-let-c-ast))
-              "Reference to c local is not shadowed in let in let")
+              "Reference to c local is shadowed in let in let")
         (t/is (= '{a {:op :local :local :let :init 1       :init-resolved nil}
                    b {:op :local :local :let :init a       :init-resolved 1}
                    c {:op :local :local :let :init (inc c) :init-resolved nil}}
                  (:locals (:env let-in-let-c-ast)))
-              "Failed to shadow locals")))))
+              "Shadow locals")))))
 
 (t/deftest analyze-defn-with-arg-test
   (t/testing "test simple defn with an arg"
@@ -133,14 +133,14 @@
       (t/is (= {'kw {:op     :local
                      :arg-id 0
                      :local  :arg}} arg-local-in-env)
-            "Failed to attach locals based on defn arg.")
+            "Attach locals based on defn arg.")
       (t/is (= {:op     :local
                 :arg-id 0
                 :local  :arg}
                (-> (first arg-local-node)
                    :ast-info
                    (dissoc :env)))
-            "Failed to mark reference to arg in defn body."))))
+            "Mark reference to arg in defn body."))))
 
 (t/deftest analyze-defn-with-varargs-test
   (t/testing "test defn with varargs"
@@ -156,14 +156,14 @@
                             :arg-id    1
                             :local     :arg
                             :variadic? true}} arg-local-in-env)
-            "Failed to attach locals based on defn arg and varargs.")
+            "Attach locals based on defn arg and varargs.")
       (t/is (= {:op     :local
                 :arg-id 0
                 :local  :arg}
                (-> (ffirst arg-local-node)
                    :ast-info
                    (dissoc :env)))
-            "Failed to mark reference to arg in defn body.")
+            "Mark reference to arg in defn body.")
       (t/is (= {:op        :local
                 :arg-id    1
                 :variadic? true
@@ -172,7 +172,7 @@
                    first
                    :ast-info
                    (dissoc :env)))
-            "Failed to mark reference to varargs coll in defn body."))))
+            "Mark reference to varargs coll in defn body."))))
 
 (t/deftest analyze-defn-with-map-destruct-as-defaults-varargs-test
   (t/testing "map destructuring, defaults, as, varargs"
@@ -187,7 +187,7 @@
               'foo            {:arg-id 0 :default-value "foo" :local :arg :op :local}
               'rest-args      {:arg-id 1 :local :arg :op :local :variadic? true}}
              arg-local-in-env)
-            "Failed to recognise all locals in args.")
+            "Recognise all locals in args.")
       (t/is (= {:op            :local
                 :arg-id        0
                 :local         :arg
@@ -195,7 +195,7 @@
                (-> (ffirst arg-local-node)
                    :ast-info
                    (dissoc :env)))
-            "Failed to mark reference to arg in defn body."))))
+            "Mark reference to arg in defn body."))))
 
 (t/deftest analyze-defn-nested-and-combined-destructurings-test
   (t/testing "nested and combined associative and sequential destructurings"
@@ -210,12 +210,12 @@
                 'outer     {:arg-id 1 :as? true :local :arg :op :local}
                 'rest-args {:arg-id 2 :local :arg :op :local :variadic? true}}
                arg-local-in-env)
-            "Failed to recognise all locals in args")
+            "Recognise all locals in args")
       (t/is (->> (map first arg-local-nodes)
                  (map :ast-info)
                  (map :arg-id)
                  (every? (partial = 1)))
-            "Not all used locals are from the second arg."))))
+            "All used locals are from the second arg."))))
 
 (t/deftest analyze-loop-test
   (t/testing "analyze loop in terms of locals"
@@ -227,7 +227,7 @@
       (t/is (= {'kw {:init [:a :b :c :d] :init-resolved nil :local :loop :op :local}
                 'rest-kws {:init [:a :b :c :d] :init-resolved nil :local :loop :op :local :rest-seq? true}}
                arg-local-in-env)
-            "Failed to recognise all locals in loop.")
+            "Recognise all locals in loop.")
       (t/is (= {:op            :local
                 :local         :loop
                 :init          [:a :b :c :d]
@@ -235,7 +235,7 @@
                (-> (ffirst arg-local-nodes)
                    :ast-info
                    (dissoc :env)))
-            "Failed to mark reference to first local.")
+            "Mark reference to first local.")
       (t/is (= {:op            :local
                 :local         :loop
                 :rest-seq?     true
@@ -245,7 +245,7 @@
                    first
                    :ast-info
                    (dissoc :env)))
-            "Failed to mark reference to rest local."))))
+            "Mark reference to rest local."))))
 
 (t/deftest analyze-for-with-let-keyword
   (t/testing "analyze for with let keyword"
@@ -258,7 +258,7 @@
       (t/is (= {'kw    {:init [:a :b :c :d] :init-resolved nil :local :for :op :local}
                 'kwstr {:init '(name kw) :init-resolved nil :local :for :op :local}}
                arg-local-in-env)
-            "Failed to recognise all locals in for")
+            "Recognise all locals in for")
       (t/is (= {:op            :local
                 :local         :for
                 :init          [:a :b :c :d]
@@ -266,7 +266,7 @@
                (-> (ffirst arg-local-nodes)
                    :ast-info
                    (dissoc :env)))
-            "Failed to mark reference to local bound to element of seq being iterated")
+            "Mark reference to local bound to element of seq being iterated")
       (t/is (= {:op            :local
                 :local         :for
                 :init          '(name kw)
@@ -275,4 +275,4 @@
                    first
                    :ast-info
                    (dissoc :env)))
-            "Failed to mark reference to :let binding in for"))))
+            "Mark reference to :let binding in for"))))

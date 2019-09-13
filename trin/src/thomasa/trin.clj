@@ -316,7 +316,7 @@
 (defn analyze-loc-string
   "Analyzes all first level forms in `loc-str`
 
-  `loc-str` typically represents a namespaces and of type string."
+  `loc-str` typically represents a namespace and of type string."
   [env loc-str]
   (analyze-loc env (zip/of-string loc-str)))
 

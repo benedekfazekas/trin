@@ -80,9 +80,9 @@
 
 (t/deftest test-simple-let
   (t/is (= #{} (sut/find-used-locals no-args-defn-with-let 1 10))
-        "Used locals not empty outside let.")
+        "Used locals empty outside let.")
   (t/is (= #{} (sut/find-used-locals no-args-defn-with-let 3 12))
-        "Used locals not empty in bindings form of let")
+        "Used locals empty in bindings form of let")
   (t/is (= '#{prefix} (sut/find-used-locals no-args-defn-with-let 5 21))
         "Used local should be symbol 'prefix and only 'prefix"))
 
