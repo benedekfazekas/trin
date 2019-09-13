@@ -86,6 +86,4 @@
     (println "selected sexp"   (zip/sexpr selected-sexp)
              " locals in use"  locals-in-use
              " avail locals: " available-locals)
-    (-> (set/intersection available-locals locals-in-use)
-        (filter available-locals)
-        set)))
+    (set/intersection available-locals locals-in-use)))
